@@ -22,6 +22,8 @@ app.use(express.json());
 mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-menu', {
   useNewUrlParser: true,
   useUnifiedTopology: true,
+  charset: 'utf8',
+  useFindAndModify: false,
 });
 
 // Socket.IO connection handling
