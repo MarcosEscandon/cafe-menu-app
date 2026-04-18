@@ -38,6 +38,11 @@ io.on('connection', (socket) => {
   });
 });
 
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'Café Bosque API - Backend funcionando correctamente' });
+});
+
 // Routes
 const menuRoutes = require('./routes/menu');
 const orderRoutes = require('./routes/orders');
