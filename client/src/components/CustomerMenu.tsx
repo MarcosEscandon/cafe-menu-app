@@ -85,7 +85,7 @@ const CustomerMenu: React.FC = () => {
 
   const fetchMenu = async () => {
     try {
-      const response = await axios.get('/api/menu');
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/menu`);
       setMenuItems(response.data);
     } catch (error) {
       console.error('Error fetching menu:', error);
@@ -94,7 +94,7 @@ const CustomerMenu: React.FC = () => {
 
   const fetchCategories = async () => {
     try {
-      const response = await axios.get('/api/menu/categories/list');
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/menu/categories/list`);
       setCategories(response.data);
     } catch (error) {
       console.error('Error fetching categories:', error);
@@ -180,7 +180,7 @@ const CustomerMenu: React.FC = () => {
         notes: customerData.notes
       };
 
-      await axios.post('/api/orders', orderData);
+      await axios.post(`${process.env.REACT_APP_API_URL || ''}/api/orders`, orderData);
       
       // Resetear estado
       setCart([]);

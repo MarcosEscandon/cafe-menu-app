@@ -86,7 +86,7 @@ const CashierView: React.FC = () => {
 
   const fetchOrders = async () => {
     try {
-      const response = await axios.get('/api/orders');
+      const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/orders`);
       setOrders(response.data);
     } catch (error) {
       console.error('Error fetching orders:', error);
