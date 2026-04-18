@@ -16,7 +16,6 @@ import {
   CircularProgress
 } from '@mui/material';
 import {
-  Kitchen,
   AccessTime,
   Forest,
   CheckCircle,
@@ -59,12 +58,10 @@ interface Order {
 const KitchenView: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [socket, setSocket] = useState<any>(null);
 
   useEffect(() => {
     // Conectar a Socket.IO
     const newSocket = io('http://localhost:5000');
-    setSocket(newSocket);
 
     // Unirse a la sala de cocina
     newSocket.emit('join-kitchen');
