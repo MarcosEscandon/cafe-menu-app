@@ -135,7 +135,10 @@ router.patch('/:id/status', async (req, res) => {
     }
     
     // Notificar cambio de estado
-    io.emit('order-status-update', order);
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-status-update', order);
+    }
     
     res.json(order);
   } catch (error) {
