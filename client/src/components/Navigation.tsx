@@ -65,7 +65,11 @@ const Navigation: React.FC = () => {
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <Button color="inherit" onClick={() => navigate('/menu')}>
+          <Button 
+            color="inherit" 
+            startIcon={<Coffee />}
+            onClick={() => navigate('/menu')}
+          >
             Mesero
           </Button>
           
