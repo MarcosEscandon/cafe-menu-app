@@ -62,7 +62,7 @@ const KitchenView: React.FC = () => {
   useEffect(() => {
     // Conectar a Socket.IO
     const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://cafe-menu-app-backend.onrender.com' 
+      ? 'https://cafe-bosque-api.onrender.com' 
       : 'http://localhost:5000';
     const newSocket = io(socketUrl);
 
