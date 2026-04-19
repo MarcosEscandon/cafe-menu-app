@@ -159,11 +159,97 @@ router.patch('/:id/cancel', async (req, res) => {
       return res.status(404).json({ message: 'Pedido no encontrado' });
     }
     
-    io.emit('order-cancelled', order);
+    // Notificar cancelación
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-cancelled', order);
+    }
     
     res.json(order);
   } catch (error) {
     res.status(400).json({ message: 'Error al cancelar pedido', error: error.message });
+  }
+});
+
+// Editar pedido (solo si está pendiente)
+router.put('/:id', async (req, res) => {
+  try {
+    const { items, customerName, orderType, tableNumber, notes } = req.body;
+    
+    // Verificar que el pedido exista y esté pendiente
+    const existingOrder = await Order.findById(req.params.id);
+    if (!existingOrder) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    
+    if (existingOrder.status !== 'pendiente') {
+      return res.status(400).json({ message: 'Solo se pueden editar pedidos pendientes' });
+    }
+    
+    // Validar y procesar nuevos items
+    const menuItemIds = items.map(item => item.menuItem);
+    const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } });
+    
+    if (menuItems.length !== menuItemIds.length) {
+      return res.status(400).json({ message: 'Algunos items del menú no existen' });
+    }
+    
+    // Calcular nuevo total
+    const totalAmount = items.reduce((total, item) => {
+      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItem);
+      return total + (menuItem.price * item.quantity);
+    }, 0);
+    
+    // Actualizar pedido
+    const updatedOrder = await Order.findByIdAndUpdate(
+      req.params.id,
+      {
+        items,
+        customerName: customerName || existingOrder.customerName,
+        orderType: orderType || existingOrder.orderType,
+        tableNumber: tableNumber || existingOrder.tableNumber,
+        notes: notes || existingOrder.notes,
+        totalAmount
+      },
+      { new: true }
+    ).populate('items.menuItem', 'name price preparationTime');
+    
+    // Notificar edición
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-updated', updatedOrder);
+    }
+    
+    res.json(updatedOrder);
+  } catch (error) {
+    res.status(400).json({ message: 'Error al editar pedido', error: error.message });
+  }
+});
+
+// Eliminar pedido (solo si está pendiente)
+router.delete('/:id', async (req, res) => {
+  try {
+    const order = await Order.findById(req.params.id);
+    
+    if (!order) {
+      return res.status(404).json({ message: 'Pedido no encontrado' });
+    }
+    
+    if (order.status !== 'pendiente') {
+      return res.status(400).json({ message: 'Solo se pueden eliminar pedidos pendientes' });
+    }
+    
+    await Order.findByIdAndDelete(req.params.id);
+    
+    // Notificar eliminación
+    const io = req.app.get('io');
+    if (io) {
+      io.emit('order-deleted', order);
+    }
+    
+    res.json({ message: 'Pedido eliminado correctamente' });
+  } catch (error) {
+    res.status(400).json({ message: 'Error al eliminar pedido', error: error.message });
   }
 });
 
