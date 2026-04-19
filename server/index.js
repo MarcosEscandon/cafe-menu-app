@@ -72,6 +72,9 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/auth', authRoutes);
 
+// Make io available in routes
+app.set('io', io);
+
 // Export io for use in routes
 module.exports = { app, io };
 

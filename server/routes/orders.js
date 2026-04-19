@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
-const { io } = require('../index');
 const { body, validationResult } = require('express-validator');
 
 // Obtener todos los pedidos
@@ -105,7 +104,11 @@ router.post('/', [
     const populatedOrder = await Order.findById(order._id)
       .populate('items.menuItem', 'name price preparationTime');
     
-    io.to('kitchen').emit('new-order', populatedOrder);
+    // Notificar a la cocina si io está disponible
+    const io = req.app.get('io');
+    if (io) {
+      io.to('kitchen').emit('new-order', populatedOrder);
+    }
     
     res.status(201).json(populatedOrder);
   } catch (error) {
