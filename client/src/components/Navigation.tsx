@@ -69,25 +69,21 @@ const Navigation: React.FC = () => {
             Mesero
           </Button>
           
-          {user?.role === 'kitchen' && (
-            <Button 
-              color="inherit" 
-              startIcon={<Kitchen />}
-              onClick={() => navigate('/kitchen')}
-            >
-              Cabaña
-            </Button>
-          )}
+          <Button 
+            color="inherit" 
+            startIcon={<Kitchen />}
+            onClick={() => navigate('/kitchen')}
+          >
+            Cocina
+          </Button>
           
-          {user?.role === 'kitchen' && (
-            <Button 
-              color="inherit" 
-              startIcon={<Payments />}
-              onClick={() => navigate('/cashier')}
-            >
-              Caja
-            </Button>
-          )}
+          <Button 
+            color="inherit" 
+            startIcon={<Payments />}
+            onClick={() => navigate('/cashier')}
+          >
+            Caja
+          </Button>
 
           {user ? (
             <>
