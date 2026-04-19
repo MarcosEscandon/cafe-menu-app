@@ -61,7 +61,10 @@ const KitchenView: React.FC = () => {
 
   useEffect(() => {
     // Conectar a Socket.IO
-    const newSocket = io('http://localhost:5000');
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://cafe-menu-app-backend.onrender.com' 
+      : 'http://localhost:5000';
+    const newSocket = io(socketUrl);
 
     // Unirse a la sala de cocina
     newSocket.emit('join-kitchen');

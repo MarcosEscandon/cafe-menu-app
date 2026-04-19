@@ -67,7 +67,10 @@ const CashierView: React.FC = () => {
   const [amountReceived, setAmountReceived] = useState('');
 
   useEffect(() => {
-    const newSocket = io('http://localhost:5000');
+    const socketUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://cafe-menu-app-backend.onrender.com' 
+      : 'http://localhost:5000';
+    const newSocket = io(socketUrl);
 
     newSocket.on('order-status-update', (updatedOrder: Order) => {
       setOrders(prev => prev.map(order => 
