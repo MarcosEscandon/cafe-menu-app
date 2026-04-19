@@ -95,7 +95,7 @@ router.post('/', [
 
     // Calcular total
     order.totalAmount = items.reduce((total, item) => {
-      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItemId);
+      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItem);
       return total + (menuItem.price * item.quantity);
     }, 0);
 
