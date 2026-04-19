@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const MenuItem = require('../models/MenuItem');
+const { body, validationResult } = require('express-validator');
 
 // Obtener todos los items del menú
 router.get('/', async (req, res) => {
@@ -32,8 +33,22 @@ router.get('/:id', async (req, res) => {
 });
 
 // Crear nuevo item (admin)
-router.post('/', async (req, res) => {
+router.post('/', [
+  body('name').trim().isLength({ min: 1, max: 100 }).escape(),
+  body('description').trim().isLength({ min: 1, max: 500 }).escape(),
+  body('price').isNumeric().isFloat({ min: 0 }),
+  body('category').isIn(['café', 'té', 'postres', 'sandwiches', 'bebidas', 'otros']),
+  body('available').optional().isBoolean()
+], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: errors.array() 
+      });
+    }
+
     const menuItem = new MenuItem(req.body);
     await menuItem.save();
     res.status(201).json(menuItem);

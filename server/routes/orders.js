@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
 const { io } = require('../index');
+const { body, validationResult } = require('express-validator');
 
 // Obtener todos los pedidos
 router.get('/', async (req, res) => {
@@ -45,66 +46,51 @@ router.get('/:id', async (req, res) => {
 });
 
 // Crear nuevo pedido
-router.post('/', async (req, res) => {
+router.post('/', [
+  body('items').isArray({ min: 1 }),
+  body('items.*.menuItemId').isMongoId(),
+  body('items.*.quantity').isInt({ min: 1 }),
+  body('customerName').optional().trim().isLength({ min: 1, max: 50 }).escape(),
+  body('customerPhone').optional().trim().isLength({ min: 0, max: 20 }).escape(),
+  body('tableNumber').optional().isInt({ min: 1, max: 999 }),
+  body('notes').optional().trim().isLength({ min: 0, max: 200 }).escape()
+], async (req, res) => {
   try {
-    const { customerName, items, orderType, tableNumber, notes } = req.body;
-    
-    // Validar y calcular totales
-    let totalAmount = 0;
-    let maxPreparationTime = 0;
-    const processedItems = [];
-    
-    for (const item of items) {
-      const menuItem = await MenuItem.findById(item.menuItemId);
-      if (!menuItem || !menuItem.available) {
-        return res.status(400).json({ message: `Item ${item.menuItemId} no disponible` });
-      }
-      
-      let itemTotal = menuItem.price * item.quantity;
-      
-      // Procesar personalizaciones
-      const processedCustomizations = [];
-      if (item.customizations) {
-        for (const customization of item.customizations) {
-          const option = menuItem.customizationOptions.find(opt => opt.name === customization.name);
-          if (option) {
-            let priceModifier = 0;
-            if (option.priceModifier) priceModifier = option.priceModifier;
-            
-            processedCustomizations.push({
-              name: customization.name,
-              value: customization.value,
-              priceModifier
-            });
-            
-            if (priceModifier) {
-              itemTotal += priceModifier * item.quantity;
-            }
-          }
-        }
-      }
-      
-      processedItems.push({
-        menuItem: menuItem._id,
-        quantity: item.quantity,
-        customizations: processedCustomizations,
-        subtotal: itemTotal
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({ 
+        message: 'Validation failed', 
+        errors: errors.array() 
       });
-      
-      totalAmount += itemTotal;
-      maxPreparationTime = Math.max(maxPreparationTime, menuItem.preparationTime);
     }
+
+    const { items, customerName, customerPhone, tableNumber, notes } = req.body;
+
+    // Validar que todos los items existan
+    const menuItemIds = items.map(item => item.menuItemId);
+    const menuItems = await MenuItem.find({ _id: { $in: menuItemIds } });
     
+    if (menuItems.length !== menuItemIds.length) {
+      return res.status(400).json({ message: 'Algunos items del menú no existen' });
+    }
+
+    // Crear el pedido
     const order = new Order({
-      customerName,
-      items: processedItems,
-      totalAmount,
-      orderType,
-      tableNumber,
-      notes,
-      estimatedTime: maxPreparationTime
+      items,
+      customerName: customerName || 'Cliente',
+      customerPhone: customerPhone || '',
+      tableNumber: tableNumber || 1,
+      notes: notes || '',
+      status: 'pending',
+      totalAmount: 0
     });
-    
+
+    // Calcular total
+    order.totalAmount = items.reduce((total, item) => {
+      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItemId);
+      return total + (menuItem.price * item.quantity);
+    }, 0);
+
     await order.save();
     
     // Notificar a la cocina
