@@ -12,7 +12,7 @@ const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
     origin: process.env.FRONTEND_URL || "http://localhost:3000",
-    methods: ["GET", "POST", "PATCH", "PUT", "DELETE"]
+    methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"]
   }
 });
 
@@ -26,15 +26,16 @@ app.use((req, res, next) => {
 app.use(helmet());
 app.use(cors({
   origin: process.env.FRONTEND_URL || "http://localhost:3000",
-  methods: ["GET", "POST", "PATCH", "PUT", "DELETE"],
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
   credentials: true
 }));
 
-// Rate limiting
+// Rate limiting (exclude PATCH methods)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  skip: (req) => req.method === 'PATCH' || req.method === 'OPTIONS'
 });
 app.use('/api/', limiter);
 
