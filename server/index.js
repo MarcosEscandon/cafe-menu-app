@@ -16,6 +16,12 @@ const io = socketIo(server, {
   }
 });
 
+// Set charset and encoding
+app.use((req, res, next) => {
+  res.setHeader('Content-Type', 'application/json; charset=utf-8');
+  next();
+});
+
 // Security Middleware
 app.use(helmet());
 app.use(cors({
@@ -36,7 +42,10 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-menu');
+mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-menu', {
+  bufferCommands: false,
+  bufferMaxEntries: 0
+});
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
