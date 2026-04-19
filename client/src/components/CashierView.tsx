@@ -100,7 +100,7 @@ const CashierView: React.FC = () => {
 
   const updatePaymentStatus = async (orderId: string, status: string) => {
     try {
-      await axios.patch(`/api/orders/${orderId}/status`, { 
+      await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { 
         status: 'entregado',
         paymentStatus: status 
       });

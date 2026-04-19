@@ -110,7 +110,7 @@ const KitchenView: React.FC = () => {
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
-      await axios.patch(`/api/orders/${orderId}/status`, { status });
+      await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { status });
       // Socket.IO manejará la actualización automática
     } catch (error) {
       console.error('Error updating order status:', error);
