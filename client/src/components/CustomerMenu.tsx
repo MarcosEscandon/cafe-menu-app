@@ -171,9 +171,10 @@ const CustomerMenu: React.FC = () => {
       const orderData = {
         customerName: customerData.name,
         items: cart.map(item => ({
-          menuItemId: item._id,
+          menuItem: item._id,
           quantity: item.quantity,
-          customizations: item.customizations
+          customizations: item.customizations,
+          subtotal: item.subtotal
         })),
         orderType: customerData.orderType,
         tableNumber: customerData.tableNumber,
