@@ -58,8 +58,22 @@ router.post('/', [
 });
 
 // Actualizar item (admin)
-router.put('/:id', async (req, res) => {
+router.put('/:id', [
+  body('name').trim().isLength({ min: 1, max: 100 }).escape(),
+  body('description').trim().isLength({ min: 1, max: 500 }).escape(),
+  body('price').isNumeric().isFloat({ min: 0 }),
+  body('category').isIn(['café', 'té', 'postres', 'sandwiches', 'bebidas', 'otros']),
+  body('available').optional().isBoolean()
+], async (req, res) => {
   try {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
     const menuItem = await MenuItem.findByIdAndUpdate(
       req.params.id,
       req.body,
