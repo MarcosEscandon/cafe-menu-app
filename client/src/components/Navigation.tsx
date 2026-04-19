@@ -16,7 +16,8 @@ import {
   Logout,
   Landscape,
   Coffee,
-  Payments
+  Payments,
+  RestaurantMenu
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 
@@ -88,6 +89,19 @@ const Navigation: React.FC = () => {
           >
             Caja
           </Button>
+
+          {user && user.role === 'admin' && (
+            <>
+              <Button 
+                color="inherit" 
+                startIcon={<RestaurantMenu />}
+                onClick={() => navigate('/menu-manager')}
+                sx={{ mr: 2 }}
+              >
+                Menú
+              </Button>
+            </>
+          )}
 
           {user ? (
             <>

@@ -6,6 +6,7 @@ import KitchenView from './components/KitchenView';
 import CashierView from './components/CashierView';
 import Login from './components/Login';
 import Navigation from './components/Navigation';
+import MenuManager from './components/MenuManager';
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
         <Route path="/kitchen" element={<KitchenView />} />
         <Route path="/cashier" element={<CashierView />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/menu-manager" element={<MenuManager />} />
       </Routes>
     </Box>
   );
