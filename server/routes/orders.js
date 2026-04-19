@@ -51,8 +51,8 @@ router.post('/', [
   body('items.*.menuItemId').isMongoId(),
   body('items.*.quantity').isInt({ min: 1 }),
   body('customerName').optional().trim().isLength({ min: 1, max: 50 }).escape(),
-  body('customerPhone').optional().trim().isLength({ min: 0, max: 20 }).escape(),
-  body('tableNumber').optional().isInt({ min: 1, max: 999 }),
+  body('orderType').isIn(['dine-in', 'takeaway', 'delivery']),
+  body('tableNumber').optional().trim().isLength({ min: 1, max: 10 }),
   body('notes').optional().trim().isLength({ min: 0, max: 200 }).escape()
 ], async (req, res) => {
   try {
@@ -64,7 +64,7 @@ router.post('/', [
       });
     }
 
-    const { items, customerName, customerPhone, tableNumber, notes } = req.body;
+    const { items, customerName, orderType, tableNumber, notes } = req.body;
 
     // Validar que todos los items existan
     const menuItemIds = items.map(item => item.menuItemId);
@@ -74,14 +74,29 @@ router.post('/', [
       return res.status(400).json({ message: 'Algunos items del menú no existen' });
     }
 
+    // Crear items del pedido con estructura correcta
+    const orderItems = items.map(item => {
+      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItemId);
+      return {
+        menuItem: item.menuItemId,
+        quantity: item.quantity,
+        customizations: item.customizations || [],
+        subtotal: menuItem.price * item.quantity
+      };
+    });
+
+    // Calcular tiempo estimado total
+    const maxPrepTime = Math.max(...menuItems.map(item => item.preparationTime || 5));
+
     // Crear el pedido
     const order = new Order({
-      items,
       customerName: customerName || 'Cliente',
-      customerPhone: customerPhone || '',
-      tableNumber: tableNumber || 1,
+      items: orderItems,
+      orderType,
+      tableNumber: tableNumber || '',
       notes: notes || '',
-      status: 'pending',
+      status: 'pendiente',
+      estimatedTime: maxPrepTime,
       totalAmount: 0
     });
 
