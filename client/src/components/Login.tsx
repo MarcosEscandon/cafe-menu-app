@@ -38,10 +38,21 @@ const Login: React.FC = () => {
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
       // Redirigir según el rol
-      if (response.data.user.role === 'kitchen') {
-        window.location.href = '/kitchen';
-      } else {
-        window.location.href = '/menu';
+      switch (response.data.user.role) {
+        case 'kitchen':
+          window.location.href = '/kitchen';
+          break;
+        case 'waiter':
+          window.location.href = '/menu';
+          break;
+        case 'cashier':
+          window.location.href = '/cashier';
+          break;
+        case 'admin':
+          window.location.href = '/menu';
+          break;
+        default:
+          window.location.href = '/menu';
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error en el login');

@@ -18,6 +18,20 @@ const users = [
     password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'kitchen123'
     role: 'kitchen',
     name: 'Cocina'
+  },
+  {
+    id: 3,
+    email: 'mesero@cafe.com',
+    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'mesero123'
+    role: 'waiter',
+    name: 'Mesero'
+  },
+  {
+    id: 4,
+    email: 'caja@cafe.com',
+    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'caja123'
+    role: 'cashier',
+    name: 'Caja'
   }
 ];
 
