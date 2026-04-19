@@ -107,7 +107,11 @@ router.post('/', [
     // Notificar a la cocina si io está disponible
     const io = req.app.get('io');
     if (io) {
-      io.to('kitchen').emit('new-order', populatedOrder);
+      try {
+        io.to('kitchen').emit('new-order', populatedOrder);
+      } catch (socketError) {
+        console.error('Error al emitir new-order:', socketError);
+      }
     }
     
     res.status(201).json(populatedOrder);
@@ -137,7 +141,11 @@ router.patch('/:id/status', async (req, res) => {
     // Notificar cambio de estado
     const io = req.app.get('io');
     if (io) {
-      io.emit('order-status-update', order);
+      try {
+        io.emit('order-status-update', order);
+      } catch (socketError) {
+        console.error('Error al emitir order-status-update:', socketError);
+      }
     }
     
     res.json(order);
@@ -162,7 +170,11 @@ router.patch('/:id/cancel', async (req, res) => {
     // Notificar cancelación
     const io = req.app.get('io');
     if (io) {
-      io.emit('order-cancelled', order);
+      try {
+        io.emit('order-cancelled', order);
+      } catch (socketError) {
+        console.error('Error al emitir order-cancelled:', socketError);
+      }
     }
     
     res.json(order);
@@ -217,7 +229,11 @@ router.put('/:id', async (req, res) => {
     // Notificar edición
     const io = req.app.get('io');
     if (io) {
-      io.emit('order-updated', updatedOrder);
+      try {
+        io.emit('order-updated', updatedOrder);
+      } catch (socketError) {
+        console.error('Error al emitir order-updated:', socketError);
+      }
     }
     
     res.json(updatedOrder);
@@ -244,7 +260,11 @@ router.delete('/:id', async (req, res) => {
     // Notificar eliminación
     const io = req.app.get('io');
     if (io) {
-      io.emit('order-deleted', order);
+      try {
+        io.emit('order-deleted', order);
+      } catch (socketError) {
+        console.error('Error al emitir order-deleted:', socketError);
+      }
     }
     
     res.json({ message: 'Pedido eliminado correctamente' });

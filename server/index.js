@@ -49,13 +49,26 @@ io.on('connection', (socket) => {
   console.log('Cliente conectado:', socket.id);
 
   socket.on('join-kitchen', () => {
-    socket.join('kitchen');
-    console.log('Cliente de cocina unido');
+    try {
+      socket.join('kitchen');
+      console.log('Cliente de cocina unido:', socket.id);
+    } catch (error) {
+      console.error('Error al unir cliente a cocina:', error);
+    }
   });
 
-  socket.on('disconnect', () => {
-    console.log('Cliente desconectado:', socket.id);
+  socket.on('error', (error) => {
+    console.error('Error en socket:', error);
   });
+
+  socket.on('disconnect', (reason) => {
+    console.log('Cliente desconectado:', socket.id, 'Razón:', reason);
+  });
+});
+
+// Handle server-level socket errors
+io.engine.on('connection_error', (err) => {
+  console.error('Error de conexión Socket.IO:', err);
 });
 
 // Root route
