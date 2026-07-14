@@ -33,7 +33,7 @@ const Login: React.FC = () => {
     setError('');
 
     try {
-      const response = await axios.post('/api/auth/login', credentials);
+      const response = await axios.post(`${process.env.REACT_APP_API_URL || ''}/api/auth/login`, credentials);
       localStorage.setItem('token', response.data.token);
       localStorage.setItem('user', JSON.stringify(response.data.user));
       
@@ -129,6 +129,12 @@ const Login: React.FC = () => {
               </Typography>
               <Typography variant="caption" display="block">
                 Cocina: kitchen@cafe.com / kitchen123
+              </Typography>
+              <Typography variant="caption" display="block">
+                Mesero: mesero@cafe.com / mesero123
+              </Typography>
+              <Typography variant="caption" display="block">
+                Caja: caja@cafe.com / caja123
               </Typography>
             </Box>
           </CardContent>

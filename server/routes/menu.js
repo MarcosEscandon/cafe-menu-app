@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const MenuItem = require('../models/MenuItem');
 const { body, validationResult } = require('express-validator');
+const { authenticate, requireRole } = require('../middleware/auth');
 
 // Obtener todos los items del menú
 router.get('/', async (req, res) => {
@@ -19,6 +20,16 @@ router.get('/', async (req, res) => {
   }
 });
 
+// Obtener categorías disponibles
+router.get('/categories/list', async (req, res) => {
+  try {
+    const categories = await MenuItem.distinct('category');
+    res.json(categories);
+  } catch (error) {
+    res.status(500).json({ message: 'Error al obtener categorías', error: error.message });
+  }
+});
+
 // Obtener un item específico
 router.get('/:id', async (req, res) => {
   try {
@@ -33,7 +44,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Crear nuevo item (admin)
-router.post('/', [
+router.post('/', authenticate, requireRole('admin'), [
   body('name').trim().isLength({ min: 1, max: 100 }).escape(),
   body('description').trim().isLength({ min: 1, max: 500 }).escape(),
   body('price').isNumeric().isFloat({ min: 0 }),
@@ -58,7 +69,7 @@ router.post('/', [
 });
 
 // Actualizar item (admin)
-router.put('/:id', [
+router.put('/:id', authenticate, requireRole('admin'), [
   body('name').trim().isLength({ min: 1, max: 100 }).escape(),
   body('description').trim().isLength({ min: 1, max: 500 }).escape(),
   body('price').isNumeric().isFloat({ min: 0 }),
@@ -89,7 +100,7 @@ router.put('/:id', [
 });
 
 // Eliminar item (admin)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, requireRole('admin'), async (req, res) => {
   try {
     const menuItem = await MenuItem.findByIdAndDelete(req.params.id);
     if (!menuItem) {
@@ -98,16 +109,6 @@ router.delete('/:id', async (req, res) => {
     res.json({ message: 'Item eliminado correctamente' });
   } catch (error) {
     res.status(500).json({ message: 'Error al eliminar item', error: error.message });
-  }
-});
-
-// Obtener categorías disponibles
-router.get('/categories/list', async (req, res) => {
-  try {
-    const categories = await MenuItem.distinct('category');
-    res.json(categories);
-  } catch (error) {
-    res.status(500).json({ message: 'Error al obtener categorías', error: error.message });
   }
 });
 

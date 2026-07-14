@@ -8,28 +8,28 @@ const users = [
   {
     id: 1,
     email: 'admin@cafe.com',
-    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'admin123'
+    password: '$2a$10$HHtNQKEBLaQDfHz8p5rOsOWmr11v7pMF2CKWAN3C1/44Nu/7c9cR6', // 'admin123'
     role: 'admin',
     name: 'Administrador'
   },
   {
     id: 2,
     email: 'kitchen@cafe.com',
-    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'kitchen123'
+    password: '$2a$10$pkdYqbWd4aBT4ypShn2zDua6AGDnrS8bKXUA9zrQnwjCC60IwjMVq', // 'kitchen123'
     role: 'kitchen',
     name: 'Cocina'
   },
   {
     id: 3,
     email: 'mesero@cafe.com',
-    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'mesero123'
+    password: '$2a$10$EqtJigqwWg9oHcXfoTe2DOwbuPLYTqJThJf32.VxZPjLF377GXcme', // 'mesero123'
     role: 'waiter',
     name: 'Mesero'
   },
   {
     id: 4,
     email: 'caja@cafe.com',
-    password: '$2a$10$rOzJqQjQjQjQjQjQjQjQjOzJqQjQjQjQjQjQjQjQjQjQjQjQjQjQjQ', // 'caja123'
+    password: '$2a$10$6PNg57ddg2cz0fdVy0Jmk.Eb330h6FJ0N6ZDJX3rgnzf2q.y2rooS', // 'caja123'
     role: 'cashier',
     name: 'Caja'
   }

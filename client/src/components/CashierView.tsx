@@ -72,10 +72,20 @@ const CashierView: React.FC = () => {
       : 'http://localhost:5000';
     const newSocket = io(socketUrl);
 
+    newSocket.on('new-order', (newOrder: Order) => {
+      setOrders(prev => {
+        const exists = prev.some(o => o._id === newOrder._id);
+        if (exists) return prev.map(o => o._id === newOrder._id ? newOrder : o);
+        return [newOrder, ...prev];
+      });
+    });
+
     newSocket.on('order-status-update', (updatedOrder: Order) => {
-      setOrders(prev => prev.map(order => 
-        order._id === updatedOrder._id ? updatedOrder : order
-      ));
+      setOrders(prev => {
+        const exists = prev.some(o => o._id === updatedOrder._id);
+        if (exists) return prev.map(o => o._id === updatedOrder._id ? updatedOrder : o);
+        return [updatedOrder, ...prev];
+      });
     });
 
     return () => {
@@ -103,6 +113,8 @@ const CashierView: React.FC = () => {
       await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { 
         status: 'entregado',
         paymentStatus: status 
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       
       setOrders(prev => prev.map(order => 
@@ -140,7 +152,7 @@ const CashierView: React.FC = () => {
   };
 
   const pendingPayments = orders.filter(order => 
-    order.status === 'listo' && order.paymentStatus === 'pendiente'
+    order.paymentStatus === 'pendiente' && !['entregado', 'cancelado'].includes(order.status)
   );
 
   const completedPayments = orders.filter(order => 
@@ -224,9 +236,8 @@ const CashierView: React.FC = () => {
                       #{order.orderNumber}
                     </Typography>
                     <Chip 
-                      label="Listo para Pagar"
-                      color="success"
-                      icon={<CheckCircle />}
+                      label={order.status}
+                      color={order.status === 'listo' ? 'success' : 'warning'}
                       size="small"
                     />
                   </Box>
@@ -273,8 +284,9 @@ const CashierView: React.FC = () => {
                     fullWidth
                     startIcon={<Payments />}
                     onClick={() => openPaymentDialog(order)}
+                    disabled={order.status !== 'listo'}
                   >
-                    Procesar Pago
+                    {order.status === 'listo' ? 'Procesar Pago' : `Estado: ${order.status}`}
                   </Button>
                 </CardContent>
               </Card>

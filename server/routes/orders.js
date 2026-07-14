@@ -3,6 +3,7 @@ const router = express.Router();
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
 const { body, validationResult } = require('express-validator');
+const { authenticate } = require('../middleware/auth');
 
 // Obtener todos los pedidos
 router.get('/', async (req, res) => {
@@ -74,7 +75,7 @@ router.post('/', [
       return res.status(400).json({ message: 'Algunos items del menú no existen' });
     }
 
-    // Usar los items directamente ya que vienen con la estructura correcta
+    // Usar los subtotales enviados por el cliente (incluyen personalizaciones)
     const orderItems = items;
 
     // Calcular tiempo estimado total
@@ -92,10 +93,9 @@ router.post('/', [
       totalAmount: 0
     });
 
-    // Calcular total
+    // Calcular total usando los subtotales que incluyen personalizaciones
     order.totalAmount = items.reduce((total, item) => {
-      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItem);
-      return total + (menuItem.price * item.quantity);
+      return total + (item.subtotal || 0);
     }, 0);
 
     await order.save();
@@ -104,11 +104,11 @@ router.post('/', [
     const populatedOrder = await Order.findById(order._id)
       .populate('items.menuItem', 'name price preparationTime');
     
-    // Notificar a la cocina si io está disponible
+    // Notificar a todos los clientes
     const io = req.app.get('io');
     if (io) {
       try {
-        io.to('kitchen').emit('new-order', populatedOrder);
+        io.emit('new-order', populatedOrder);
       } catch (socketError) {
         console.error('Error al emitir new-order:', socketError);
       }
@@ -121,16 +121,19 @@ router.post('/', [
 });
 
 // Actualizar estado del pedido
-router.patch('/:id/status', async (req, res) => {
+router.patch('/:id/status', authenticate, async (req, res) => {
   try {
-    const { status, actualTime } = req.body;
+    const { status, actualTime, paymentStatus } = req.body;
+    
+    const updateFields = { 
+      status,
+      ...(actualTime && { actualTime }),
+      ...(paymentStatus && { paymentStatus })
+    };
     
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { 
-        status,
-        ...(actualTime && { actualTime })
-      },
+      updateFields,
       { new: true }
     ).populate('items.menuItem', 'name price');
     
@@ -155,7 +158,7 @@ router.patch('/:id/status', async (req, res) => {
 });
 
 // Cancelar pedido
-router.patch('/:id/cancel', async (req, res) => {
+router.patch('/:id/cancel', authenticate, async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
@@ -184,7 +187,7 @@ router.patch('/:id/cancel', async (req, res) => {
 });
 
 // Editar pedido (solo si está pendiente)
-router.put('/:id', async (req, res) => {
+router.put('/:id', authenticate, async (req, res) => {
   try {
     const { items, customerName, orderType, tableNumber, notes } = req.body;
     
@@ -206,10 +209,9 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ message: 'Algunos items del menú no existen' });
     }
     
-    // Calcular nuevo total
+    // Calcular nuevo total usando los subtotales que incluyen personalizaciones
     const totalAmount = items.reduce((total, item) => {
-      const menuItem = menuItems.find(mi => mi._id.toString() === item.menuItem);
-      return total + (menuItem.price * item.quantity);
+      return total + (item.subtotal || 0);
     }, 0);
     
     // Actualizar pedido
@@ -243,7 +245,7 @@ router.put('/:id', async (req, res) => {
 });
 
 // Eliminar pedido (solo si está pendiente)
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authenticate, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     

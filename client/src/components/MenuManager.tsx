@@ -122,10 +122,14 @@ const MenuManager: React.FC = () => {
     try {
       if (editingItem) {
         // Actualizar item existente
-        await axios.put(`${process.env.REACT_APP_API_URL || ''}/api/menu/${editingItem._id}`, formData);
+        await axios.put(`${process.env.REACT_APP_API_URL || ''}/api/menu/${editingItem._id}`, formData, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
       } else {
         // Crear nuevo item
-        await axios.post(`${process.env.REACT_APP_API_URL || ''}/api/menu`, formData);
+        await axios.post(`${process.env.REACT_APP_API_URL || ''}/api/menu`, formData, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
       }
       
       setDialogOpen(false);
@@ -139,7 +143,9 @@ const MenuManager: React.FC = () => {
   const deleteMenuItem = async (id: string) => {
     if (window.confirm('¿Estás seguro de que quieres eliminar este item?')) {
       try {
-        await axios.delete(`${process.env.REACT_APP_API_URL || ''}/api/menu/${id}`);
+        await axios.delete(`${process.env.REACT_APP_API_URL || ''}/api/menu/${id}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+        });
         fetchMenu(); // Refrescar la lista
       } catch (error) {
         console.error('Error deleting menu item:', error);
@@ -153,6 +159,8 @@ const MenuManager: React.FC = () => {
       await axios.put(`${process.env.REACT_APP_API_URL || ''}/api/menu/${item._id}`, {
         ...item,
         available: !item.available
+      }, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
       fetchMenu(); // Refrescar la lista
     } catch (error) {
