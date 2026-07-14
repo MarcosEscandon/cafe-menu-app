@@ -23,7 +23,6 @@ import {
 } from '@mui/material';
 import {
   Payments,
-  CheckCircle,
   Close,
   CreditCard,
   Money,
