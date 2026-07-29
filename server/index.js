@@ -5,9 +5,20 @@ const http = require('http');
 const socketIo = require('socket.io');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
+const compression = require('compression');
 require('dotenv').config();
 
+// Validate required environment variables
+const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
+REQUIRED_ENV_VARS.forEach(key => {
+  if (!process.env[key]) {
+    console.error(`FATAL: Missing required environment variable ${key}`);
+    process.exit(1);
+  }
+});
+
 const app = express();
+app.set('trust proxy', true);
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
@@ -15,6 +26,9 @@ const io = socketIo(server, {
     methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"]
   }
 });
+
+// Compression middleware
+app.use(compression());
 
 // Set charset and encoding
 app.use((req, res, next) => {
@@ -32,18 +46,42 @@ app.use(cors({
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100, // limit each IP to 100 requests per windowMs
+  windowMs: 15 * 60 * 1000,
+  max: 100,
   message: 'Too many requests from this IP, please try again later.'
 });
 app.use('/api/', limiter);
+
+// Stricter rate limit for login
+const loginLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 5,
+  message: 'Demasiados intentos de login, intenta de nuevo en 1 minuto'
+});
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// MongoDB Connection
-mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-menu');
+// MongoDB connection with retry
+async function connectDB(retries = 5, delay = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await mongoose.connect(process.env.MONGODB_URI);
+      console.log('Conectado a MongoDB correctamente');
+      return;
+    } catch (err) {
+      console.error(`Error conectando a MongoDB (intento ${i + 1}/${retries}):`, err.message);
+      if (i < retries - 1) {
+        await new Promise(res => setTimeout(res, delay));
+      }
+    }
+  }
+  console.error('FATAL: No se pudo conectar a MongoDB después de múltiples intentos');
+  process.exit(1);
+}
+
+connectDB();
 
 // Socket.IO connection handling
 io.on('connection', (socket) => {
@@ -55,6 +93,15 @@ io.on('connection', (socket) => {
       console.log('Cliente de cocina unido:', socket.id);
     } catch (error) {
       console.error('Error al unir cliente a cocina:', error);
+    }
+  });
+
+  socket.on('join-cashier', () => {
+    try {
+      socket.join('cashier');
+      console.log('Cliente de caja unido:', socket.id);
+    } catch (error) {
+      console.error('Error al unir cliente a caja:', error);
     }
   });
 
@@ -84,7 +131,7 @@ const authRoutes = require('./routes/auth');
 
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', loginLimiter, authRoutes);
 
 // Make io available in routes
 app.set('io', io);
@@ -96,3 +143,22 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Servidor corriendo en puerto ${PORT}`);
 });
+
+// Graceful shutdown
+async function gracefulShutdown(signal) {
+  console.log(`\n${signal} recibido. Cerrando servidor gracefully...`);
+  server.close(() => {
+    console.log('Servidor HTTP cerrado');
+    mongoose.connection.close(false).then(() => {
+      console.log('Conexión MongoDB cerrada');
+      process.exit(0);
+    });
+  });
+  setTimeout(() => {
+    console.error('Forzando cierre después de timeout');
+    process.exit(1);
+  }, 10000);
+}
+
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));

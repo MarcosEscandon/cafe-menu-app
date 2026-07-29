@@ -76,11 +76,16 @@ const orderSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Generar número de orden automáticamente
+// Generar número de orden automáticamente (atómico)
 orderSchema.pre('save', async function(next) {
   if (!this.orderNumber) {
-    const count = await this.constructor.countDocuments();
-    this.orderNumber = `ORD-${String(count + 1).padStart(4, '0')}`;
+    const Counter = require('./Counter');
+    const counter = await Counter.findOneAndUpdate(
+      { name: 'orderNumber' },
+      { $inc: { seq: 1 } },
+      { new: true, upsert: true }
+    );
+    this.orderNumber = `ORD-${String(counter.seq).padStart(4, '0')}`;
   }
   next();
 });

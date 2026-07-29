@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -43,7 +43,7 @@ interface Order {
     quantity: number;
     customizations: Array<{
       name: string;
-      value: any;
+      value: string | number | boolean;
       priceModifier: number;
     }>;
     subtotal: number;
@@ -66,10 +66,10 @@ const CashierView: React.FC = () => {
   const [amountReceived, setAmountReceived] = useState('');
 
   useEffect(() => {
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://cafe-bosque-api.onrender.com' 
-      : 'http://localhost:5000';
+    const socketUrl = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000';
     const newSocket = io(socketUrl);
+
+    newSocket.emit('join-cashier');
 
     newSocket.on('new-order', (newOrder: Order) => {
       setOrders(prev => {
@@ -85,6 +85,22 @@ const CashierView: React.FC = () => {
         if (exists) return prev.map(o => o._id === updatedOrder._id ? updatedOrder : o);
         return [updatedOrder, ...prev];
       });
+    });
+
+    newSocket.on('order-cancelled', (cancelledOrder: Order) => {
+      setOrders(prev => prev.map(order =>
+        order._id === cancelledOrder._id ? { ...order, status: cancelledOrder.status } : order
+      ));
+    });
+
+    newSocket.on('order-updated', (updatedOrder: Order) => {
+      setOrders(prev => prev.map(order =>
+        order._id === updatedOrder._id ? updatedOrder : order
+      ));
+    });
+
+    newSocket.on('order-deleted', (deletedOrder: Order) => {
+      setOrders(prev => prev.filter(order => order._id !== deletedOrder._id));
     });
 
     return () => {
@@ -108,20 +124,16 @@ const CashierView: React.FC = () => {
   };
 
   const updatePaymentStatus = async (orderId: string, status: string) => {
-    try {
-      await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { 
-        status: 'entregado',
-        paymentStatus: status 
-      }, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
-      });
-      
-      setOrders(prev => prev.map(order => 
-        order._id === orderId ? { ...order, paymentStatus: status, status: 'entregado' } : order
-      ));
-    } catch (error) {
-      console.error('Error updating payment status:', error);
-    }
+    const response = await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { 
+      status: 'entregado',
+      paymentStatus: status 
+    }, {
+      headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+    });
+    
+    setOrders(prev => prev.map(order => 
+      order._id === orderId ? { ...order, ...response.data } : order
+    ));
   };
 
   const openPaymentDialog = (order: Order) => {
@@ -131,15 +143,16 @@ const CashierView: React.FC = () => {
     setPaymentDialog(true);
   };
 
-  const processPayment = () => {
+  const processPayment = async () => {
     if (!selectedOrder || !paymentMethod) return;
 
-    if (paymentMethod === 'cash' && amountReceived && parseFloat(amountReceived) < selectedOrder.totalAmount) {
+    const amount = parseFloat(amountReceived);
+    if (paymentMethod === 'cash' && (isNaN(amount) || amount < selectedOrder.totalAmount)) {
       alert('El monto recibido es insuficiente');
       return;
     }
 
-    updatePaymentStatus(selectedOrder._id, 'pagado');
+    await updatePaymentStatus(selectedOrder._id, 'pagado');
     setPaymentDialog(false);
     setSelectedOrder(null);
     alert('Pago procesado exitosamente');
@@ -147,18 +160,27 @@ const CashierView: React.FC = () => {
 
   const getChange = () => {
     if (!selectedOrder || !amountReceived) return 0;
-    return parseFloat(amountReceived) - selectedOrder.totalAmount;
+    const amount = parseFloat(amountReceived);
+    if (isNaN(amount)) return 0;
+    return amount - selectedOrder.totalAmount;
   };
 
-  const pendingPayments = orders.filter(order => 
-    order.paymentStatus === 'pendiente' && !['entregado', 'cancelado'].includes(order.status)
+  const pendingPayments = useMemo(() => 
+    orders.filter(order => 
+      order.paymentStatus === 'pendiente' && !['entregado', 'cancelado'].includes(order.status)
+    ),
+    [orders]
   );
 
-  const completedPayments = orders.filter(order => 
-    order.paymentStatus === 'pagado'
+  const completedPayments = useMemo(() => 
+    orders.filter(order => order.paymentStatus === 'pagado'),
+    [orders]
   );
 
-  const totalRevenue = completedPayments.reduce((total, order) => total + order.totalAmount, 0);
+  const totalRevenue = useMemo(() => 
+    completedPayments.reduce((total, order) => total + order.totalAmount, 0),
+    [completedPayments]
+  );
 
   if (loading) {
     return (

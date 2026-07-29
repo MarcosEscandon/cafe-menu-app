@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -40,7 +40,7 @@ interface Order {
     quantity: number;
     customizations: Array<{
       name: string;
-      value: any;
+      value: string | number | boolean;
       priceModifier: number;
     }>;
     subtotal: number;
@@ -58,12 +58,11 @@ interface Order {
 const KitchenView: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     // Conectar a Socket.IO
-    const socketUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://cafe-bosque-api.onrender.com' 
-      : 'http://localhost:5000';
+    const socketUrl = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000';
     const newSocket = io(socketUrl);
 
     // Unirse a la sala de cocina
@@ -110,12 +109,14 @@ const KitchenView: React.FC = () => {
 
   const updateOrderStatus = async (orderId: string, status: string) => {
     try {
+      setError(null);
       await axios.patch(`${process.env.REACT_APP_API_URL || ''}/api/orders/${orderId}/status`, { status }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
-      // Socket.IO manejará la actualización automática
-    } catch (error) {
+    } catch (error: any) {
+      const msg = error.response?.data?.message || error.message || 'Error al actualizar pedido';
       console.error('Error updating order status:', error);
+      setError(msg);
     }
   };
 
@@ -138,16 +139,18 @@ const KitchenView: React.FC = () => {
       case 'preparando': return <LocalFireDepartment />;
       case 'listo': return <CheckCircle />;
       case 'entregado': return <DoneAll />;
-      default: return null;
+      default: return undefined;
     }
   };
 
-  const activeOrders = orders.filter(order => 
-    !['entregado', 'cancelado'].includes(order.status)
+  const activeOrders = useMemo(() => 
+    orders.filter(order => !['entregado', 'cancelado'].includes(order.status)),
+    [orders]
   );
 
-  const completedOrders = orders.filter(order => 
-    ['entregado', 'cancelado'].includes(order.status)
+  const completedOrders = useMemo(() => 
+    orders.filter(order => ['entregado', 'cancelado'].includes(order.status)),
+    [orders]
   );
 
   if (loading) {
@@ -205,6 +208,12 @@ const KitchenView: React.FC = () => {
       <Typography variant="h5" gutterBottom>
         Pedidos Activos ({activeOrders.length})
       </Typography>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
       
       {activeOrders.length === 0 ? (
         <Alert severity="info" sx={{ mb: 3 }}>

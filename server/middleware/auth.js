@@ -8,10 +8,13 @@ const authenticate = (req, res, next) => {
   }
   
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret_key');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET);
     req.user = decoded;
     next();
   } catch (error) {
+    if (error instanceof jwt.TokenExpiredError) {
+      return res.status(401).json({ message: 'Token expirado, inicia sesión nuevamente' });
+    }
     return res.status(401).json({ message: 'Token inválido' });
   }
 };

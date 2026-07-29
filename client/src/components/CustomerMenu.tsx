@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -22,7 +22,8 @@ import {
   FormControl,
   InputLabel,
   Checkbox,
-  FormControlLabel
+  FormControlLabel,
+  Alert
 } from '@mui/material';
 import {
   Add,
@@ -55,7 +56,7 @@ interface CartItem extends MenuItemType {
   quantity: number;
   customizations: Array<{
     name: string;
-    value: any;
+    value: string | number | boolean;
     priceModifier?: number;
   }>;
   subtotal: number;
@@ -69,8 +70,10 @@ const CustomerMenu: React.FC = () => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<MenuItemType | null>(null);
   const [quantity, setQuantity] = useState(1);
-  const [customizations, setCustomizations] = useState<Record<string, any>>({});
+  const [customizations, setCustomizations] = useState<Record<string, string | number | boolean>>({});
   const [orderDialogOpen, setOrderDialogOpen] = useState(false);
+  const [menuError, setMenuError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
   const [customerData, setCustomerData] = useState({
     name: '',
     tableNumber: '',
@@ -87,8 +90,10 @@ const CustomerMenu: React.FC = () => {
     try {
       const response = await axios.get(`${process.env.REACT_APP_API_URL || ''}/api/menu`);
       setMenuItems(response.data);
+      setMenuError(null);
     } catch (error) {
       console.error('Error fetching menu:', error);
+      setMenuError('Error al cargar el menú. Verifica la conexión con el servidor.');
     }
   };
 
@@ -101,9 +106,12 @@ const CustomerMenu: React.FC = () => {
     }
   };
 
-  const filteredItems = selectedCategory === 'todos' 
-    ? menuItems 
-    : menuItems.filter(item => item.category === selectedCategory);
+  const filteredItems = useMemo(() => 
+    selectedCategory === 'todos' 
+      ? menuItems 
+      : menuItems.filter(item => item.category === selectedCategory),
+    [selectedCategory, menuItems]
+  );
 
   const openItemDialog = (item: MenuItemType) => {
     setSelectedItem(item);
@@ -112,7 +120,7 @@ const CustomerMenu: React.FC = () => {
     
     // Inicializar personalizaciones requeridas
     if (item.customizationOptions) {
-      const initialCustomizations: Record<string, any> = {};
+      const initialCustomizations: Record<string, string | number | boolean> = {};
       item.customizationOptions.forEach(option => {
         if (option.type === 'boolean') {
           initialCustomizations[option.name] = false;
@@ -162,19 +170,20 @@ const CustomerMenu: React.FC = () => {
   };
 
   
-  const getTotalPrice = () => {
+  const totalPrice = useMemo(() => {
     return cart.reduce((total, item) => total + item.subtotal, 0);
-  };
+  }, [cart]);
 
   const submitOrder = async () => {
+    if (submitting) return;
+    setSubmitting(true);
     try {
       const orderData = {
         customerName: customerData.name,
         items: cart.map(item => ({
           menuItem: item._id,
           quantity: item.quantity,
-          customizations: item.customizations,
-          subtotal: item.subtotal
+          customizations: item.customizations
         })),
         orderType: customerData.orderType,
         tableNumber: customerData.tableNumber,
@@ -197,6 +206,8 @@ const CustomerMenu: React.FC = () => {
     } catch (error) {
       console.error('Error submitting order:', error);
       alert('Error al enviar el pedido');
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -206,6 +217,12 @@ const CustomerMenu: React.FC = () => {
         <Forest sx={{ mr: 2, verticalAlign: 'middle' }} />
         Panel del Mesero
       </Typography>
+
+      {menuError && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setMenuError(null)}>
+          {menuError}
+        </Alert>
+      )}
 
       {/* Filtro por categorías */}
       <Box sx={{ mb: 3, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
@@ -234,7 +251,7 @@ const CustomerMenu: React.FC = () => {
             Pedido Actual
           </Typography>
           <Typography variant="h6">
-            Total: ${getTotalPrice().toFixed(2)}
+            Total: ${totalPrice.toFixed(2)}
           </Typography>
           <Button
             variant="contained"
@@ -324,7 +341,7 @@ const CustomerMenu: React.FC = () => {
                 <FormControlLabel
                   control={
                     <Checkbox
-                      checked={customizations[option.name] || false}
+                      checked={Boolean(customizations[option.name])}
                       onChange={(e) => setCustomizations({
                         ...customizations,
                         [option.name]: e.target.checked
@@ -412,7 +429,7 @@ const CustomerMenu: React.FC = () => {
           
           <Typography variant="h6">Resumen del Pedido:</Typography>
           {cart.map((item, index) => (
-            <Box key={index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+            <Box key={item._id + '-' + index} sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
               <Typography>
                 {item.quantity}x {item.name}
               </Typography>
@@ -420,7 +437,7 @@ const CustomerMenu: React.FC = () => {
             </Box>
           ))}
           <Typography variant="h6" sx={{ mt: 2 }}>
-            Total: ${getTotalPrice().toFixed(2)}
+            Total: ${totalPrice.toFixed(2)}
           </Typography>
         </DialogContent>
         <DialogActions>

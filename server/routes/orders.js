@@ -6,7 +6,7 @@ const { body, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
 
 // Obtener todos los pedidos
-router.get('/', async (req, res) => {
+router.get('/', authenticate, async (req, res) => {
   try {
     const { status, date } = req.query;
     let filter = {};
@@ -30,7 +30,7 @@ router.get('/', async (req, res) => {
 });
 
 // Obtener un pedido específico
-router.get('/:id', async (req, res) => {
+router.get('/:id', authenticate, async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('items.menuItem', 'name price preparationTime customizationOptions');
@@ -50,7 +50,6 @@ router.post('/', [
   body('items').isArray({ min: 1 }),
   body('items.*.menuItem').isMongoId(),
   body('items.*.quantity').isInt({ min: 1 }),
-  body('items.*.subtotal').isNumeric(),
   body('customerName').optional().trim().isLength({ min: 1, max: 50 }).escape(),
   body('orderType').isIn(['dine-in', 'takeaway', 'delivery']),
   body('tableNumber').optional().trim().isLength({ min: 1, max: 10 }),
@@ -75,8 +74,27 @@ router.post('/', [
       return res.status(400).json({ message: 'Algunos items del menú no existen' });
     }
 
-    // Usar los subtotales enviados por el cliente (incluyen personalizaciones)
-    const orderItems = items;
+    // Build menu item lookup map
+    const menuItemMap = {};
+    menuItems.forEach(item => {
+      menuItemMap[item._id.toString()] = item;
+    });
+
+    // Recalcular subtotales del lado del servidor
+    const orderItems = items.map(item => {
+      const menuItem = menuItemMap[item.menuItem];
+      const basePrice = menuItem.price;
+      const customizationPrice = (item.customizations || []).reduce((sum, c) => sum + (c.priceModifier || 0), 0);
+      return {
+        menuItem: item.menuItem,
+        quantity: item.quantity,
+        customizations: item.customizations || [],
+        subtotal: (basePrice + customizationPrice) * item.quantity
+      };
+    });
+
+    // Calcular total desde los items recalculados
+    const totalAmount = orderItems.reduce((total, item) => total + item.subtotal, 0);
 
     // Calcular tiempo estimado total
     const maxPrepTime = Math.max(...menuItems.map(item => item.preparationTime || 5));
@@ -90,13 +108,8 @@ router.post('/', [
       notes: notes || '',
       status: 'pendiente',
       estimatedTime: maxPrepTime,
-      totalAmount: 0
+      totalAmount
     });
-
-    // Calcular total usando los subtotales que incluyen personalizaciones
-    order.totalAmount = items.reduce((total, item) => {
-      return total + (item.subtotal || 0);
-    }, 0);
 
     await order.save();
     
@@ -104,11 +117,11 @@ router.post('/', [
     const populatedOrder = await Order.findById(order._id)
       .populate('items.menuItem', 'name price preparationTime');
     
-    // Notificar a todos los clientes
     const io = req.app.get('io');
     if (io) {
       try {
-        io.emit('new-order', populatedOrder);
+        io.to('kitchen').emit('new-order', populatedOrder);
+        io.to('cashier').emit('new-order', populatedOrder);
       } catch (socketError) {
         console.error('Error al emitir new-order:', socketError);
       }
@@ -127,7 +140,7 @@ router.patch('/:id/status', authenticate, async (req, res) => {
     
     const updateFields = { 
       status,
-      ...(actualTime && { actualTime }),
+      ...(actualTime && actualTime >= 0 && actualTime <= 120 && { actualTime }),
       ...(paymentStatus && { paymentStatus })
     };
     
@@ -145,7 +158,8 @@ router.patch('/:id/status', authenticate, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       try {
-        io.emit('order-status-update', order);
+        io.to('kitchen').emit('order-status-update', order);
+        io.to('cashier').emit('order-status-update', order);
       } catch (socketError) {
         console.error('Error al emitir order-status-update:', socketError);
       }
@@ -174,7 +188,8 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       try {
-        io.emit('order-cancelled', order);
+        io.to('kitchen').emit('order-cancelled', order);
+        io.to('cashier').emit('order-cancelled', order);
       } catch (socketError) {
         console.error('Error al emitir order-cancelled:', socketError);
       }
@@ -209,21 +224,40 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Algunos items del menú no existen' });
     }
     
-    // Calcular nuevo total usando los subtotales que incluyen personalizaciones
-    const totalAmount = items.reduce((total, item) => {
-      return total + (item.subtotal || 0);
-    }, 0);
+    // Build menu item lookup map
+    const menuItemMap = {};
+    menuItems.forEach(item => {
+      menuItemMap[item._id.toString()] = item;
+    });
+
+    // Recalcular subtotales del lado del servidor
+    const orderItems = items.map(item => {
+      const menuItem = menuItemMap[item.menuItem];
+      const basePrice = menuItem.price;
+      const customizationPrice = (item.customizations || []).reduce((sum, c) => sum + (c.priceModifier || 0), 0);
+      return {
+        menuItem: item.menuItem,
+        quantity: item.quantity,
+        customizations: item.customizations || [],
+        subtotal: (basePrice + customizationPrice) * item.quantity
+      };
+    });
+
+    // Recalcular total y tiempo estimado
+    const totalAmount = orderItems.reduce((total, item) => total + item.subtotal, 0);
+    const maxPrepTime = Math.max(...menuItems.map(item => item.preparationTime || 5));
     
     // Actualizar pedido
     const updatedOrder = await Order.findByIdAndUpdate(
       req.params.id,
       {
-        items,
+        items: orderItems,
         customerName: customerName || existingOrder.customerName,
         orderType: orderType || existingOrder.orderType,
         tableNumber: tableNumber || existingOrder.tableNumber,
         notes: notes || existingOrder.notes,
-        totalAmount
+        totalAmount,
+        estimatedTime: maxPrepTime
       },
       { new: true }
     ).populate('items.menuItem', 'name price preparationTime');
@@ -232,7 +266,8 @@ router.put('/:id', authenticate, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       try {
-        io.emit('order-updated', updatedOrder);
+        io.to('kitchen').emit('order-updated', updatedOrder);
+        io.to('cashier').emit('order-updated', updatedOrder);
       } catch (socketError) {
         console.error('Error al emitir order-updated:', socketError);
       }
@@ -263,7 +298,8 @@ router.delete('/:id', authenticate, async (req, res) => {
     const io = req.app.get('io');
     if (io) {
       try {
-        io.emit('order-deleted', order);
+        io.to('kitchen').emit('order-deleted', order);
+        io.to('cashier').emit('order-deleted', order);
       } catch (socketError) {
         console.error('Error al emitir order-deleted:', socketError);
       }

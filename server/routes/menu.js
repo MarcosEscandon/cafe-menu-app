@@ -7,11 +7,30 @@ const { authenticate, requireRole } = require('../middleware/auth');
 // Obtener todos los items del menú
 router.get('/', async (req, res) => {
   try {
-    const { category, available } = req.query;
+    const { category, available, page, limit } = req.query;
     let filter = {};
     
     if (category) filter.category = category;
     if (available !== undefined) filter.available = available === 'true';
+    
+    if (page || limit) {
+      const pageNum = Math.max(1, parseInt(page as string) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 50));
+      const skip = (pageNum - 1) * limitNum;
+      
+      const [menuItems, total] = await Promise.all([
+        MenuItem.find(filter).sort({ category: 1, name: 1 }).skip(skip).limit(limitNum),
+        MenuItem.countDocuments(filter)
+      ]);
+      
+      return res.json({
+        items: menuItems,
+        total,
+        page: pageNum,
+        limit: limitNum,
+        totalPages: Math.ceil(total / limitNum)
+      });
+    }
     
     const menuItems = await MenuItem.find(filter).sort({ category: 1, name: 1 });
     res.json(menuItems);
@@ -85,9 +104,10 @@ router.put('/:id', authenticate, requireRole('admin'), [
       });
     }
 
+    const { name, description, price, category, available, customizationOptions, preparationTime } = req.body;
     const menuItem = await MenuItem.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      { name, description, price, category, available, customizationOptions, preparationTime },
       { new: true, runValidators: true }
     );
     if (!menuItem) {

@@ -5,8 +5,8 @@ services:
     env: node
     repo: https://github.com/TU_USERNAME/cafe-menu-app.git
     rootDir: server
-    buildCommand: cd .. && npm install && cd server && npm install
-    startCommand: cd .. && npm run server
+    buildCommand: npm install
+    startCommand: node index.js
     envVars:
       - key: MONGODB_URI
         sync: false

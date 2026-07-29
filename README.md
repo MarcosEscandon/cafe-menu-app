@@ -226,10 +226,20 @@ cafe-menu-app/
 - **Backend**: Desplegado en Render (`render.yaml` incluido)
 - **Frontend**: Desplegado en Vercel (`vercel.json` incluido)
 
-### Desarrollo
+### Producción
+
+Para desplegar en producción, primero construir el frontend:
 
 ```bash
-npm run dev  # Inicia backend (port 5000) y frontend (port 3000)
+npm run build  # Genera los archivos estáticos optimizados en client/build/
+```
+
+Esto ejecuta `react-scripts build` que produce una versión minificada y optimizada del frontend lista para servir desde el backend en producción.
+
+Luego iniciar el servidor:
+
+```bash
+npm start  # Sirve el frontend build + API en el puerto configurado
 ```
 
 ### Docker (Opcional)

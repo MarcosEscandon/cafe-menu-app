@@ -30,6 +30,10 @@ import {
   Restaurant,
   Close
 } from '@mui/icons-material';
+import {
+  Snackbar,
+  Alert
+} from '@mui/material';
 import axios from 'axios';
 
 interface MenuItemType {
@@ -56,6 +60,7 @@ const MenuManager: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string>('todos');
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<MenuItemType | null>(null);
+  const [snackbar, setSnackbar] = useState<{ message: string; severity: 'success' | 'error' } | null>(null);
   const [formData, setFormData] = useState<Partial<MenuItemType>>({
     name: '',
     description: '',
@@ -133,36 +138,36 @@ const MenuManager: React.FC = () => {
       }
       
       setDialogOpen(false);
-      fetchMenu(); // Refrescar la lista
+      fetchMenu();
+      setSnackbar({ message: 'Item guardado correctamente', severity: 'success' });
     } catch (error) {
       console.error('Error saving menu item:', error);
-      alert('Error al guardar el item del menú');
+      setSnackbar({ message: 'Error al guardar el item del menú', severity: 'error' });
     }
   };
 
   const deleteMenuItem = async (id: string) => {
-    if (window.confirm('¿Estás seguro de que quieres eliminar este item?')) {
-      try {
-        await axios.delete(`${process.env.REACT_APP_API_URL || ''}/api/menu/${id}`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
-        });
-        fetchMenu(); // Refrescar la lista
-      } catch (error) {
-        console.error('Error deleting menu item:', error);
-        alert('Error al eliminar el item del menú');
-      }
+    if (!window.confirm('¿Estás seguro de que quieres eliminar este item?')) return;
+    try {
+      await axios.delete(`${process.env.REACT_APP_API_URL || ''}/api/menu/${id}`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
+      });
+      fetchMenu();
+      setSnackbar({ message: 'Item eliminado correctamente', severity: 'success' });
+    } catch (error) {
+      console.error('Error deleting menu item:', error);
+      setSnackbar({ message: 'Error al eliminar el item del menú', severity: 'error' });
     }
   };
 
   const toggleAvailability = async (item: MenuItemType) => {
     try {
       await axios.put(`${process.env.REACT_APP_API_URL || ''}/api/menu/${item._id}`, {
-        ...item,
         available: !item.available
       }, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token') || ''}` }
       });
-      fetchMenu(); // Refrescar la lista
+      fetchMenu();
     } catch (error) {
       console.error('Error toggling availability:', error);
     }
@@ -348,6 +353,19 @@ const MenuManager: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {snackbar && (
+        <Snackbar
+          open
+          autoHideDuration={3000}
+          onClose={() => setSnackbar(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        >
+          <Alert onClose={() => setSnackbar(null)} severity={snackbar.severity} variant="filled">
+            {snackbar.message}
+          </Alert>
+        </Snackbar>
+      )}
     </Box>
   );
 };

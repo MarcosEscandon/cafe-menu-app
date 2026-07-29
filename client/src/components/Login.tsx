@@ -11,6 +11,7 @@ import {
 } from '@mui/material';
 import { Forest } from '@mui/icons-material';
 import axios from 'axios';
+import { useNavigate } from 'react-router-dom';
 
 const Login: React.FC = () => {
   const [credentials, setCredentials] = useState({
@@ -19,6 +20,7 @@ const Login: React.FC = () => {
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setCredentials({
@@ -40,19 +42,19 @@ const Login: React.FC = () => {
       // Redirigir según el rol
       switch (response.data.user.role) {
         case 'kitchen':
-          window.location.href = '/kitchen';
+          navigate('/kitchen');
           break;
         case 'waiter':
-          window.location.href = '/menu';
+          navigate('/menu');
           break;
         case 'cashier':
-          window.location.href = '/cashier';
+          navigate('/cashier');
           break;
         case 'admin':
-          window.location.href = '/menu';
+          navigate('/menu');
           break;
         default:
-          window.location.href = '/menu';
+          navigate('/menu');
       }
     } catch (error: any) {
       setError(error.response?.data?.message || 'Error en el login');
@@ -120,23 +122,25 @@ const Login: React.FC = () => {
               </Button>
             </form>
 
-            <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
-              <Typography variant="caption" display="block" gutterBottom>
-                Cuentas de demostración:
-              </Typography>
-              <Typography variant="caption" display="block">
-                Admin: admin@cafe.com / admin123
-              </Typography>
-              <Typography variant="caption" display="block">
-                Cocina: kitchen@cafe.com / kitchen123
-              </Typography>
-              <Typography variant="caption" display="block">
-                Mesero: mesero@cafe.com / mesero123
-              </Typography>
-              <Typography variant="caption" display="block">
-                Caja: caja@cafe.com / caja123
-              </Typography>
-            </Box>
+            {process.env.REACT_APP_SHOW_DEMO_CREDENTIALS === 'true' && (
+              <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 1 }}>
+                <Typography variant="caption" display="block" gutterBottom>
+                  Cuentas de demostración:
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Admin: admin@cafe.com / admin123
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Cocina: kitchen@cafe.com / kitchen123
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Mesero: mesero@cafe.com / mesero123
+                </Typography>
+                <Typography variant="caption" display="block">
+                  Caja: caja@cafe.com / caja123
+                </Typography>
+              </Box>
+            )}
           </CardContent>
         </Card>
       </Box>
