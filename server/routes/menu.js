@@ -4,6 +4,27 @@ const MenuItem = require('../models/MenuItem');
 const { body, validationResult } = require('express-validator');
 const { authenticate, requireRole } = require('../middleware/auth');
 
+const customizationOptionValidation = () => {
+  return body('customizationOptions').optional().isArray().custom((options) => {
+    if (!options || !Array.isArray(options)) return true;
+    for (const opt of options) {
+      if (!opt.name || typeof opt.name !== 'string') {
+        throw new Error('Cada opción de personalización debe tener un name válido');
+      }
+      if (!['boolean', 'select', 'number'].includes(opt.type)) {
+        throw new Error(`Tipo inválido para "${opt.name}": debe ser boolean, select o number`);
+      }
+      if (opt.type === 'select' && (!Array.isArray(opt.options) || opt.options.length === 0)) {
+        throw new Error(`"${opt.name}" es tipo select pero no tiene options`);
+      }
+      if (opt.priceModifier !== undefined && typeof opt.priceModifier !== 'number') {
+        throw new Error(`priceModifier de "${opt.name}" debe ser un número`);
+      }
+    }
+    return true;
+  });
+};
+
 // Obtener todos los items del menú
 router.get('/', async (req, res) => {
   try {
@@ -68,7 +89,8 @@ router.post('/', authenticate, requireRole('admin'), [
   body('description').trim().isLength({ min: 1, max: 500 }).escape(),
   body('price').isNumeric().isFloat({ min: 0 }),
   body('category').isIn(['café', 'té', 'postres', 'sandwiches', 'bebidas', 'otros']),
-  body('available').optional().isBoolean()
+  body('available').optional().isBoolean(),
+  customizationOptionValidation()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);
@@ -93,7 +115,8 @@ router.put('/:id', authenticate, requireRole('admin'), [
   body('description').trim().isLength({ min: 1, max: 500 }).escape(),
   body('price').isNumeric().isFloat({ min: 0 }),
   body('category').isIn(['café', 'té', 'postres', 'sandwiches', 'bebidas', 'otros']),
-  body('available').optional().isBoolean()
+  body('available').optional().isBoolean(),
+  customizationOptionValidation()
 ], async (req, res) => {
   try {
     const errors = validationResult(req);

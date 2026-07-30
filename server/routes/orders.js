@@ -1,9 +1,19 @@
 const express = require('express');
 const router = express.Router();
+const mongoose = require('mongoose');
 const Order = require('../models/Order');
 const MenuItem = require('../models/MenuItem');
-const { body, validationResult } = require('express-validator');
+const { body, param, validationResult } = require('express-validator');
 const { authenticate } = require('../middleware/auth');
+
+const validateObjectId = (field) => {
+  return param(field).custom((value) => {
+    if (!mongoose.Types.ObjectId.isValid(value)) {
+      throw new Error(`ID inválido: ${value}`);
+    }
+    return true;
+  });
+};
 
 // Obtener todos los pedidos
 router.get('/', authenticate, async (req, res) => {
@@ -30,7 +40,7 @@ router.get('/', authenticate, async (req, res) => {
 });
 
 // Obtener un pedido específico
-router.get('/:id', authenticate, async (req, res) => {
+router.get('/:id', authenticate, validateObjectId('id'), async (req, res) => {
   try {
     const order = await Order.findById(req.params.id)
       .populate('items.menuItem', 'name price preparationTime customizationOptions');
@@ -46,7 +56,7 @@ router.get('/:id', authenticate, async (req, res) => {
 });
 
 // Crear nuevo pedido
-router.post('/', [
+router.post('/', authenticate, [
   body('items').isArray({ min: 1 }),
   body('items.*.menuItem').isMongoId(),
   body('items.*.quantity').isInt({ min: 1 }),
@@ -134,7 +144,7 @@ router.post('/', [
 });
 
 // Actualizar estado del pedido
-router.patch('/:id/status', authenticate, async (req, res) => {
+router.patch('/:id/status', authenticate, validateObjectId('id'), async (req, res) => {
   try {
     const { status, actualTime, paymentStatus } = req.body;
     
@@ -172,7 +182,7 @@ router.patch('/:id/status', authenticate, async (req, res) => {
 });
 
 // Cancelar pedido
-router.patch('/:id/cancel', authenticate, async (req, res) => {
+router.patch('/:id/cancel', authenticate, validateObjectId('id'), async (req, res) => {
   try {
     const order = await Order.findByIdAndUpdate(
       req.params.id,
@@ -202,7 +212,7 @@ router.patch('/:id/cancel', authenticate, async (req, res) => {
 });
 
 // Editar pedido (solo si está pendiente)
-router.put('/:id', authenticate, async (req, res) => {
+router.put('/:id', authenticate, validateObjectId('id'), async (req, res) => {
   try {
     const { items, customerName, orderType, tableNumber, notes } = req.body;
     
@@ -280,7 +290,7 @@ router.put('/:id', authenticate, async (req, res) => {
 });
 
 // Eliminar pedido (solo si está pendiente)
-router.delete('/:id', authenticate, async (req, res) => {
+router.delete('/:id', authenticate, validateObjectId('id'), async (req, res) => {
   try {
     const order = await Order.findById(req.params.id);
     

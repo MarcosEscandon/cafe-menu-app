@@ -29,7 +29,7 @@ import {
   LocalAtm
 } from '@mui/icons-material';
 import axios from 'axios';
-import io from 'socket.io-client';
+import { useSocket } from '../SocketContext';
 
 interface Order {
   _id: string;
@@ -65,48 +65,59 @@ const CashierView: React.FC = () => {
   const [paymentMethod, setPaymentMethod] = useState('');
   const [amountReceived, setAmountReceived] = useState('');
 
+  const socket = useSocket();
+
   useEffect(() => {
-    const socketUrl = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl);
+    if (!socket) return;
 
-    newSocket.emit('join-cashier');
+    socket.emit('join-cashier');
 
-    newSocket.on('new-order', (newOrder: Order) => {
+    const handleNewOrder = (newOrder: Order) => {
       setOrders(prev => {
         const exists = prev.some(o => o._id === newOrder._id);
         if (exists) return prev.map(o => o._id === newOrder._id ? newOrder : o);
         return [newOrder, ...prev];
       });
-    });
+    };
 
-    newSocket.on('order-status-update', (updatedOrder: Order) => {
+    const handleStatusUpdate = (updatedOrder: Order) => {
       setOrders(prev => {
         const exists = prev.some(o => o._id === updatedOrder._id);
         if (exists) return prev.map(o => o._id === updatedOrder._id ? updatedOrder : o);
         return [updatedOrder, ...prev];
       });
-    });
+    };
 
-    newSocket.on('order-cancelled', (cancelledOrder: Order) => {
+    const handleCancelled = (cancelledOrder: Order) => {
       setOrders(prev => prev.map(order =>
         order._id === cancelledOrder._id ? { ...order, status: cancelledOrder.status } : order
       ));
-    });
+    };
 
-    newSocket.on('order-updated', (updatedOrder: Order) => {
+    const handleUpdated = (updatedOrder: Order) => {
       setOrders(prev => prev.map(order =>
         order._id === updatedOrder._id ? updatedOrder : order
       ));
-    });
+    };
 
-    newSocket.on('order-deleted', (deletedOrder: Order) => {
+    const handleDeleted = (deletedOrder: Order) => {
       setOrders(prev => prev.filter(order => order._id !== deletedOrder._id));
-    });
+    };
+
+    socket.on('new-order', handleNewOrder);
+    socket.on('order-status-update', handleStatusUpdate);
+    socket.on('order-cancelled', handleCancelled);
+    socket.on('order-updated', handleUpdated);
+    socket.on('order-deleted', handleDeleted);
 
     return () => {
-      newSocket.close();
+      socket.off('new-order', handleNewOrder);
+      socket.off('order-status-update', handleStatusUpdate);
+      socket.off('order-cancelled', handleCancelled);
+      socket.off('order-updated', handleUpdated);
+      socket.off('order-deleted', handleDeleted);
     };
-  }, []);
+  }, [socket]);
 
   useEffect(() => {
     fetchOrders();

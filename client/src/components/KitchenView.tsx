@@ -24,7 +24,7 @@ import {
   Cabin
 } from '@mui/icons-material';
 import axios from 'axios';
-import io from 'socket.io-client';
+import { useSocket } from '../SocketContext';
 
 interface Order {
   _id: string;
@@ -59,38 +59,39 @@ const KitchenView: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const socket = useSocket();
 
   useEffect(() => {
-    // Conectar a Socket.IO
-    const socketUrl = process.env.REACT_APP_SOCKET_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000';
-    const newSocket = io(socketUrl);
+    if (!socket) return;
 
-    // Unirse a la sala de cocina
-    newSocket.emit('join-kitchen');
+    socket.emit('join-kitchen');
 
-    // Escuchar nuevos pedidos
-    newSocket.on('new-order', (order: Order) => {
+    const handleNewOrder = (order: Order) => {
       setOrders(prev => [order, ...prev]);
-    });
+    };
 
-    // Escuchar actualizaciones de estado
-    newSocket.on('order-status-update', (updatedOrder: Order) => {
-      setOrders(prev => prev.map(order => 
+    const handleStatusUpdate = (updatedOrder: Order) => {
+      setOrders(prev => prev.map(order =>
         order._id === updatedOrder._id ? updatedOrder : order
       ));
-    });
+    };
 
-    // Escuchar pedidos cancelados
-    newSocket.on('order-cancelled', (cancelledOrder: Order) => {
-      setOrders(prev => prev.map(order => 
+    const handleCancelled = (cancelledOrder: Order) => {
+      setOrders(prev => prev.map(order =>
         order._id === cancelledOrder._id ? cancelledOrder : order
       ));
-    });
+    };
+
+    socket.on('new-order', handleNewOrder);
+    socket.on('order-status-update', handleStatusUpdate);
+    socket.on('order-cancelled', handleCancelled);
 
     return () => {
-      newSocket.close();
+      socket.off('new-order', handleNewOrder);
+      socket.off('order-status-update', handleStatusUpdate);
+      socket.off('order-cancelled', handleCancelled);
     };
-  }, []);
+  }, [socket]);
 
   useEffect(() => {
     fetchOrders();

@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme';
+import { SocketProvider } from './SocketContext';
 import App from './App';
 
 const root = ReactDOM.createRoot(
@@ -15,7 +16,9 @@ root.render(
     <BrowserRouter>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <App />
+        <SocketProvider>
+          <App />
+        </SocketProvider>
       </ThemeProvider>
     </BrowserRouter>
   </React.StrictMode>

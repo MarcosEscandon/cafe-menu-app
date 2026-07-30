@@ -6,19 +6,29 @@ const socketIo = require('socket.io');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const compression = require('compression');
+const pino = require('pino');
 require('dotenv').config();
+
+const logger = pino({
+  level: process.env.LOG_LEVEL || 'info',
+  transport: process.env.NODE_ENV !== 'production' ? {
+    target: 'pino-pretty',
+    options: { colorize: true }
+  } : undefined
+});
 
 // Validate required environment variables
 const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
 REQUIRED_ENV_VARS.forEach(key => {
   if (!process.env[key]) {
-    console.error(`FATAL: Missing required environment variable ${key}`);
+    logger.fatal(`Missing required environment variable ${key}`);
     process.exit(1);
   }
 });
 
 const app = express();
 app.set('trust proxy', true);
+app.set('logger', logger);
 const server = http.createServer(app);
 const io = socketIo(server, {
   cors: {
@@ -68,55 +78,74 @@ async function connectDB(retries = 5, delay = 5000) {
   for (let i = 0; i < retries; i++) {
     try {
       await mongoose.connect(process.env.MONGODB_URI);
-      console.log('Conectado a MongoDB correctamente');
+      logger.info('Conectado a MongoDB correctamente');
       return;
     } catch (err) {
-      console.error(`Error conectando a MongoDB (intento ${i + 1}/${retries}):`, err.message);
+      logger.error(err, `Error conectando a MongoDB (intento ${i + 1}/${retries})`);
       if (i < retries - 1) {
         await new Promise(res => setTimeout(res, delay));
       }
     }
   }
-  console.error('FATAL: No se pudo conectar a MongoDB después de múltiples intentos');
+  logger.fatal('No se pudo conectar a MongoDB después de múltiples intentos');
   process.exit(1);
 }
 
 connectDB();
 
+// Health endpoint
+app.get('/api/health', async (req, res) => {
+  const dbState = mongoose.connection.readyState;
+  const dbStatus = {
+    0: 'disconnected',
+    1: 'connected',
+    2: 'connecting',
+    3: 'disconnecting'
+  }[dbState] || 'unknown';
+
+  res.json({
+    status: dbState === 1 ? 'healthy' : 'unhealthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    database: dbStatus,
+    nodeVersion: process.version
+  });
+});
+
 // Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log('Cliente conectado:', socket.id);
+  logger.info({ socketId: socket.id }, 'Cliente conectado');
 
   socket.on('join-kitchen', () => {
     try {
       socket.join('kitchen');
-      console.log('Cliente de cocina unido:', socket.id);
+      logger.info({ socketId: socket.id }, 'Cliente de cocina unido');
     } catch (error) {
-      console.error('Error al unir cliente a cocina:', error);
+      logger.error(error, 'Error al unir cliente a cocina');
     }
   });
 
   socket.on('join-cashier', () => {
     try {
       socket.join('cashier');
-      console.log('Cliente de caja unido:', socket.id);
+      logger.info({ socketId: socket.id }, 'Cliente de caja unido');
     } catch (error) {
-      console.error('Error al unir cliente a caja:', error);
+      logger.error(error, 'Error al unir cliente a caja');
     }
   });
 
   socket.on('error', (error) => {
-    console.error('Error en socket:', error);
+    logger.error(error, 'Error en socket');
   });
 
   socket.on('disconnect', (reason) => {
-    console.log('Cliente desconectado:', socket.id, 'Razón:', reason);
+    logger.info({ socketId: socket.id, reason }, 'Cliente desconectado');
   });
 });
 
 // Handle server-level socket errors
 io.engine.on('connection_error', (err) => {
-  console.error('Error de conexión Socket.IO:', err);
+  logger.error(err, 'Error de conexión Socket.IO');
 });
 
 // Root route
@@ -133,32 +162,37 @@ app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/auth', loginLimiter, authRoutes);
 
-// Make io available in routes
+// Make io and logger available in routes
 app.set('io', io);
 
-// Export io for use in routes
-module.exports = { app, io };
+// Export for use in tests
+module.exports = { app, io, logger, server, connectDB };
 
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Servidor corriendo en puerto ${PORT}`);
-});
+// Solo iniciar el servidor si se ejecuta directamente (no al ser importado por tests)
+if (require.main === module) {
+  connectDB();
 
-// Graceful shutdown
-async function gracefulShutdown(signal) {
-  console.log(`\n${signal} recibido. Cerrando servidor gracefully...`);
-  server.close(() => {
-    console.log('Servidor HTTP cerrado');
-    mongoose.connection.close(false).then(() => {
-      console.log('Conexión MongoDB cerrada');
-      process.exit(0);
-    });
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    logger.info({ port: PORT }, `Servidor corriendo en puerto ${PORT}`);
   });
-  setTimeout(() => {
-    console.error('Forzando cierre después de timeout');
-    process.exit(1);
-  }, 10000);
-}
 
-process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
-process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+  // Graceful shutdown
+  async function gracefulShutdown(signal) {
+    logger.info({ signal }, 'Señal recibida. Cerrando servidor gracefulmente');
+    server.close(() => {
+      logger.info('Servidor HTTP cerrado');
+      mongoose.connection.close(false).then(() => {
+        logger.info('Conexión MongoDB cerrada');
+        process.exit(0);
+      });
+    });
+    setTimeout(() => {
+      logger.error('Forzando cierre después de timeout');
+      process.exit(1);
+    }, 10000);
+  }
+
+  process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+  process.on('SIGINT', () => gracefulShutdown('SIGINT'));
+}

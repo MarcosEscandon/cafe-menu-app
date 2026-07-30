@@ -1,6 +1,34 @@
 const mongoose = require('mongoose');
 const MenuItem = require('./models/MenuItem');
+const User = require('./models/User');
 require('dotenv').config();
+
+const users = [
+  {
+    email: 'admin@cafe.com',
+    password: 'admin123',
+    role: 'admin',
+    name: 'Administrador'
+  },
+  {
+    email: 'kitchen@cafe.com',
+    password: 'kitchen123',
+    role: 'kitchen',
+    name: 'Cocina'
+  },
+  {
+    email: 'mesero@cafe.com',
+    password: 'mesero123',
+    role: 'waiter',
+    name: 'Mesero'
+  },
+  {
+    email: 'caja@cafe.com',
+    password: 'caja123',
+    role: 'cashier',
+    name: 'Caja'
+  }
+];
 
 const menuItems = [
   {
@@ -299,17 +327,29 @@ const menuItems = [
 
 async function seedDatabase() {
   try {
-    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/cafe-menu');
+    if (!process.env.MONGODB_URI) {
+      console.error('FATAL: MONGODB_URI no está definida');
+      process.exit(1);
+    }
+    await mongoose.connect(process.env.MONGODB_URI);
     
     // Limpiar datos existentes
     await MenuItem.deleteMany({});
+    await User.deleteMany({});
     
-    // Insertar nuevos datos
+    // Insertar usuarios
+    for (const userData of users) {
+      const user = new User(userData);
+      await user.save();
+    }
+    console.log(`${users.length} usuarios creados correctamente`);
+    
+    // Insertar items del menú
     await MenuItem.insertMany(menuItems);
     
     console.log('Base de datos poblada exitosamente con', menuItems.length, 'items del menú');
     
-    mongoose.connection.close();
+    await mongoose.connection.close();
   } catch (error) {
     console.error('Error al poblar la base de datos:', error);
     process.exit(1);
