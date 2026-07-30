@@ -57,16 +57,18 @@ app.use(cors({
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
-  message: 'Too many requests from this IP, please try again later.'
+  max: process.env.NODE_ENV === 'test' ? 1000 : 100,
+  message: 'Too many requests from this IP, please try again later.',
+  validate: { trustProxy: false }
 });
 app.use('/api/', limiter);
 
 // Stricter rate limit for login
 const loginLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 5,
-  message: 'Demasiados intentos de login, intenta de nuevo en 1 minuto'
+  max: process.env.NODE_ENV === 'test' ? 100 : 5,
+  message: 'Demasiados intentos de login, intenta de nuevo en 1 minuto',
+  validate: { trustProxy: false }
 });
 
 // Body parsing middleware
@@ -90,8 +92,6 @@ async function connectDB(retries = 5, delay = 5000) {
   logger.fatal('No se pudo conectar a MongoDB después de múltiples intentos');
   process.exit(1);
 }
-
-connectDB();
 
 // Health endpoint
 app.get('/api/health', async (req, res) => {
@@ -160,7 +160,8 @@ const authRoutes = require('./routes/auth');
 
 app.use('/api/menu', menuRoutes);
 app.use('/api/orders', orderRoutes);
-app.use('/api/auth', loginLimiter, authRoutes);
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/auth', authRoutes);
 
 // Make io and logger available in routes
 app.set('io', io);
@@ -170,12 +171,14 @@ module.exports = { app, io, logger, server, connectDB };
 
 // Solo iniciar el servidor si se ejecuta directamente (no al ser importado por tests)
 if (require.main === module) {
-  connectDB();
+  (async () => {
+    await connectDB();
 
-  const PORT = process.env.PORT || 5000;
-  server.listen(PORT, () => {
-    logger.info({ port: PORT }, `Servidor corriendo en puerto ${PORT}`);
-  });
+    const PORT = process.env.PORT || 5000;
+    server.listen(PORT, () => {
+      logger.info({ port: PORT }, `Servidor corriendo en puerto ${PORT}`);
+    });
+  })();
 
   // Graceful shutdown
   async function gracefulShutdown(signal) {

@@ -3,7 +3,7 @@ services:
   - type: web
     name: cafe-bosque-api
     env: node
-    repo: https://github.com/TU_USERNAME/cafe-menu-app.git
+    repo: https://github.com/MarcosEscandon/cafe-menu-app.git
     buildCommand: npm install
     startCommand: node server/index.js
     envVars:

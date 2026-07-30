@@ -35,8 +35,8 @@ router.get('/', async (req, res) => {
     if (available !== undefined) filter.available = available === 'true';
     
     if (page || limit) {
-      const pageNum = Math.max(1, parseInt(page as string) || 1);
-      const limitNum = Math.min(100, Math.max(1, parseInt(limit as string) || 50));
+      const pageNum = Math.max(1, parseInt(String(page)) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(String(limit)) || 50));
       const skip = (pageNum - 1) * limitNum;
       
       const [menuItems, total] = await Promise.all([
