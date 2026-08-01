@@ -9,13 +9,20 @@ const compression = require('compression');
 const pino = require('pino');
 require('dotenv').config();
 
-const logger = pino({
-  level: process.env.LOG_LEVEL || 'info',
-  transport: process.env.NODE_ENV !== 'production' ? {
-    target: 'pino-pretty',
-    options: { colorize: true }
-  } : undefined
-});
+let logger;
+try {
+  const loggerOpts = { level: process.env.LOG_LEVEL || 'info' };
+  if (process.env.NODE_ENV !== 'production') {
+    loggerOpts.transport = {
+      target: 'pino-pretty',
+      options: { colorize: true }
+    };
+  }
+  logger = pino(loggerOpts);
+} catch (err) {
+  console.error('Failed to initialize pino logger:', err);
+  process.exit(1);
+}
 
 // Validate required environment variables
 const REQUIRED_ENV_VARS = ['MONGODB_URI', 'JWT_SECRET'];
@@ -171,14 +178,12 @@ module.exports = { app, io, logger, server, connectDB };
 
 // Solo iniciar el servidor si se ejecuta directamente (no al ser importado por tests)
 if (require.main === module) {
-  (async () => {
-    await connectDB();
+  connectDB();
 
-    const PORT = process.env.PORT || 5000;
-    server.listen(PORT, () => {
-      logger.info({ port: PORT }, `Servidor corriendo en puerto ${PORT}`);
-    });
-  })();
+  const PORT = process.env.PORT || 5000;
+  server.listen(PORT, () => {
+    logger.info({ port: PORT }, `Servidor corriendo en puerto ${PORT}`);
+  });
 
   // Graceful shutdown
   async function gracefulShutdown(signal) {
